@@ -1,7 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
-from ctransformers import AutoModelForCausalLM
+from llama_cpp import Llama
 import logging
 import signal
 import sys
@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Model configuration
-MODEL_PATH = os.getenv("MODEL_PATH", "DeepSeek-Coder-V2-Lite-Base.Q5_K_S.gguf")
-GPU_LAYERS = int(os.getenv("GPU_LAYERS", "-1"))  # Number of layers to offload to GPU
+MODEL_PATH = os.getenv("MODEL_PATH", "deepseek-coder-v2-lite-base-q8_0.gguf")
+N_GPU_LAYERS = int(os.getenv("GPU_LAYERS", "-1"))  # Number of layers to offload to GPU
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", "32768"))
 MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "10000"))
 
@@ -29,7 +29,7 @@ class InferenceRequest(BaseModel):
     temperature: float = 0.7
     top_p: float = 0.95
     top_k: int = 40
-    repetition_penalty: float = 1.1
+    repeat_penalty: float = 1.1
 
 class InferenceResponse(BaseModel):
     generated_text: str
@@ -37,16 +37,20 @@ class InferenceResponse(BaseModel):
 # Global model variable - loaded only once when server starts
 model = None
 
+def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != os.getenv("API_KEY"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
+
 @app.on_event("startup")
 async def startup_event():
     global model
     try:
         logger.info(f"Loading model from {MODEL_PATH}")
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL_PATH,
-            model_type="llama",  # Adjust based on your model type: llama, mistral, falcon, etc.
-            gpu_layers=GPU_LAYERS,
-            context_length=CONTEXT_LENGTH
+        model = Llama(
+            model_path=MODEL_PATH,
+            n_gpu_layers=N_GPU_LAYERS,
+            n_ctx=CONTEXT_LENGTH
         )
         logger.info("Model loaded successfully")
         
@@ -77,7 +81,7 @@ def setup_signal_handlers():
     logger.info("Signal handlers registered")
 
 @app.post("/generate", response_model=InferenceResponse)
-async def generate_text(request: InferenceRequest):
+async def generate_text(request: InferenceRequest, api_key: str = Depends(verify_api_key)):
     global model
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -86,14 +90,17 @@ async def generate_text(request: InferenceRequest):
         logger.info(f"Processing prompt: {request.prompt[:50]}...")
         
         # Generate text with the model
-        generated_text = model(
-            request.prompt,
-            max_new_tokens=request.max_tokens,
+        output = model(
+            prompt=request.prompt,
+            max_tokens=request.max_tokens,
             temperature=request.temperature,
             top_p=request.top_p,
             top_k=request.top_k,
-            repetition_penalty=request.repetition_penalty
+            repeat_penalty=request.repeat_penalty
         )
+        
+        # Extract the generated text from the output
+        generated_text = output["choices"][0]["text"]
         
         return InferenceResponse(generated_text=generated_text)
     except Exception as e:

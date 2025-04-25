@@ -1,14 +1,16 @@
 import requests
 import argparse
 import time
+import os
 
-def generate_text(prompt, api_url="http://localhost:8000/generate", **kwargs):
+def generate_text(prompt, api_url="http://localhost:8000/generate", api_key=None, **kwargs):
     """
     Send a request to the model server and get generated text
     
     Args:
         prompt (str): The input prompt for text generation
         api_url (str): URL of the generation endpoint
+        api_key (str): API key for authentication
         **kwargs: Additional parameters for generation (temperature, max_tokens, etc.)
     
     Returns:
@@ -27,6 +29,11 @@ def generate_text(prompt, api_url="http://localhost:8000/generate", **kwargs):
     # Update with any provided kwargs
     params.update(kwargs)
     
+    # Setup headers with API key
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    
     # Print request info
     print(f"Sending request to {api_url}")
     print(f"Prompt: {prompt[:50]}..." if len(prompt) > 50 else f"Prompt: {prompt}")
@@ -35,7 +42,7 @@ def generate_text(prompt, api_url="http://localhost:8000/generate", **kwargs):
     start_time = time.time()
     
     # Send the request
-    response = requests.post(api_url, json=params)
+    response = requests.post(api_url, json=params, headers=headers)
     
     # Calculate timing
     end_time = time.time()
@@ -76,6 +83,8 @@ if __name__ == "__main__":
                        help="Sampling temperature")
     parser.add_argument("--url", type=str, default="http://localhost:8000/generate",
                        help="API endpoint URL")
+    parser.add_argument("--api_key", type=str, default=os.environ.get("API_KEY"),
+                       help="API key for authentication")
     
     args = parser.parse_args()
     
@@ -85,6 +94,7 @@ if __name__ == "__main__":
         result = generate_text(
             args.prompt, 
             api_url=args.url,
+            api_key=args.api_key,
             max_tokens=args.max_tokens,
             temperature=args.temperature
         )
