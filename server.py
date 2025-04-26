@@ -50,7 +50,8 @@ async def startup_event():
         model = Llama(
             model_path=MODEL_PATH,
             n_gpu_layers=N_GPU_LAYERS,
-            n_ctx=CONTEXT_LENGTH
+            n_ctx=8192,
+            # n_ctx=CONTEXT_LENGTH
         )
         logger.info("Model loaded successfully")
         
@@ -92,10 +93,11 @@ async def generate_text(request: InferenceRequest, api_key: str = Depends(verify
         # Generate text with the model
         output = model(
             prompt=request.prompt,
-            max_tokens=request.max_tokens,
+            max_tokens=4096,
             temperature=request.temperature,
             top_p=request.top_p,
             top_k=request.top_k,
+            stop=[],
             repeat_penalty=request.repeat_penalty
         )
         
