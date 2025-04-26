@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 import subprocess
 import json
 import os
+from pydantic import BaseModel
 
 app = FastAPI()
 
