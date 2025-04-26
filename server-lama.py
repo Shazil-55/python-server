@@ -3,6 +3,7 @@ import subprocess
 import json
 import os
 from pydantic import BaseModel
+import re
 
 app = FastAPI()
 
@@ -94,7 +95,13 @@ async def generate_syllabus(request: SyllabusRequest):
 
         # Capture output and return as JSON
         output = result.stdout.decode("utf-8")
-        return json.loads(output)
+        print("output===============   ", output)
+        try:
+            json_text = re.search(r'\{.*\}', output, re.DOTALL).group()
+            return json.loads(json_text)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to parse model output: {e}")
+
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
