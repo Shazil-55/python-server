@@ -91,7 +91,7 @@ async def generate_text(request: InferenceRequest, api_key: str = Depends(verify
         logger.info(f"Processing prompt: {request.prompt[:50]}...")
         
         # Generate text with the model
-        output = model(
+        output = model.create_completion(
             prompt=request.prompt,
             max_tokens=4096,
             temperature=request.temperature,
