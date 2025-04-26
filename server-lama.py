@@ -8,15 +8,22 @@ app = FastAPI()
 # Path to your model directory
 MODEL_PATH = "/workspace/Mistral-7B-Instruct-v0.1-GGUF/mistral-7b-instruct-v0.1.Q8_0.gguf"
 
+class SyllabusRequest(BaseModel):
+    truncated_content: str
+    class_range: dict
+
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the syllabus generation API!"}
 
 @app.post("/generate_syllabus/")
-async def generate_syllabus(truncated_content: str, class_range: dict):
+async def generate_syllabus(request: SyllabusRequest):
     """
     Endpoint to generate a syllabus based on the input content and class range.
     """
+    truncated_content = request.truncated_content
+    class_range = request.class_range
     system_prompt = f"""
     You are a precision-focused syllabus architect. Strictly follow these requirements:
     - Generate 1 class based on the following content:
